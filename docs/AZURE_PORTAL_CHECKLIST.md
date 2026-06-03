@@ -17,7 +17,7 @@ Configuration → Application settings → New application setting:
 
 | Name | Value |
 |------|--------|
-| `VITE_API_BASE_URL` | `https://<YOUR-BACKEND-APP>.azurewebsites.net` |
+| `VITE_API_BASE_URL` | `https://<YOUR-BACKEND-APP>.azurewebsites.net` (no trailing slash). **Runtime:** read by `server.js` via `/config.js` — restart/sync is enough after changing; rebuild only needed for other code changes. |
 | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `true` |
 | `WEBSITE_NODE_DEFAULT_VERSION` | `~20` |
 | `NODE_ENV` | `production` |

@@ -66,7 +66,7 @@ Admin login posts to:
 
 If `VITE_API_BASE_URL` is not set and app runs on localhost, client falls back to `http://localhost:4000`.
 
-**Production:** `VITE_API_BASE_URL` must be set at **build time** (Vite inlines it). In Azure, add it as an Application setting before deploy; changing it requires a redeploy.
+**Production:** Set `VITE_API_BASE_URL` in Azure App Settings to your backend URL. The production server serves `/config.js` at **runtime** (no frontend rebuild required when only the API URL changes). Rebuild is still required for other code changes.
 
 Format: backend root only, **no trailing slash** — e.g. `https://mudhro-agency-api.azurewebsites.net` (paths already use `/api/...`).
 
