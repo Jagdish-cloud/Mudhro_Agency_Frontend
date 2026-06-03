@@ -28,7 +28,7 @@ Save, then redeploy if the app was already deployed without `VITE_API_BASE_URL`.
 
 Configuration → General settings:
 
-- **Startup Command:** leave empty (`npm start`)
+- **Startup Command:** leave empty, or set explicitly to `npm start` (required — `/config.js` is served by Node `server.js`, not a file in GitHub)
 - **Always On:** On
 - **HTTPS Only:** On
 - **Web sockets:** On
@@ -39,7 +39,25 @@ Configuration → General settings:
 - Repo: `Mudhro_Agency_Frontend`, branch `main`
 - Build provider: App Service Build Service
 
-## 5. When backend exists
+## 5. Verify `config.js` (API URL)
+
+`/config.js` is **not** in the GitHub repo. After deploy, open in a browser:
+
+`https://<YOUR-FRONTEND-APP>.azurewebsites.net/config.js`
+
+You should see one line like:
+
+`window.__RUNTIME_CONFIG__={"apiBaseUrl":"https://your-backend.azurewebsites.net"};`
+
+| Result | Meaning |
+|--------|---------|
+| **404 or HTML page** | App is not running `npm start` / `server.js`, or deploy is outdated — set Startup Command to `npm start`, sync latest `main`, restart |
+| **`apiBaseUrl":""`** | `VITE_API_BASE_URL` missing during build or at runtime — add App Setting, **Sync** deployment, restart |
+| **Correct backend URL** | Frontend can reach the API — try sign-in |
+
+Also check the home page loads, then test `/sign-in`.
+
+## 6. When backend exists
 
 **Backend** App Service:
 
