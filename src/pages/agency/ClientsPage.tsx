@@ -158,7 +158,7 @@ export function ClientsPage() {
                 setStatus(e.target.value as "all" | AgencyClientStatus)
               }
             >
-              <option value="all">All statuses</option>
+              <option value="all">All</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
               <option value="archived">Archived</option>
@@ -170,8 +170,9 @@ export function ClientsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Region</TableHead>
                 <TableHead>Contact</TableHead>
-                <TableHead>GST</TableHead>
+                <TableHead>Tax / Legal ID</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -179,13 +180,13 @@ export function ClientsPage() {
             <TableBody>
               {loading && clients.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : clients.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
                     No clients yet. Create your first one.
                   </TableCell>
                 </TableRow>
@@ -200,11 +201,31 @@ export function ClientsPage() {
                         {client.email ?? "no email"}
                       </div>
                     </TableCell>
+                    <TableCell>
+                      <Badge variant={client.clientRegion === "international" ? "secondary" : "outline"}>
+                        {client.clientRegion === "international" ? "International" : "Domestic"}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-sm">
                       {client.contactName ?? "-"}
                       <div className="text-xs text-muted-foreground">{client.phone ?? ""}</div>
                     </TableCell>
-                    <TableCell className="text-xs">{client.gstNumber ?? "-"}</TableCell>
+                    <TableCell className="text-xs">
+                      {client.clientRegion === "international" ? (
+                        client.legalIdNumber ? (
+                          <>
+                            {client.legalIdLabel ? `${client.legalIdLabel}: ` : ""}
+                            {client.legalIdNumber}
+                          </>
+                        ) : client.hasLegalDocument ? (
+                          "Document on file"
+                        ) : (
+                          "-"
+                        )
+                      ) : (
+                        client.gstNumber ?? "-"
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={client.status === "active" ? "active" : "inactive"}>
                         {client.status}

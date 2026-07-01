@@ -1,4 +1,4 @@
-import { apiClient } from "@/lib/apiClient";
+import { apiClient, apiDownloadBlob, apiUploadFile } from "@/lib/apiClient";
 import type {
   AgencyClientDto,
   AgencyClientStatus,
@@ -68,6 +68,27 @@ export function deleteAgencyClientApi(
 ): Promise<{ id: string }> {
   return apiClient.delete<{ id: string }>(
     `${basePath(orgId)}/${encodeURIComponent(clientId)}`,
+  );
+}
+
+export function uploadClientLegalDocumentApi(
+  orgId: string,
+  clientId: string,
+  file: File,
+): Promise<AgencyClientDto> {
+  return apiUploadFile<AgencyClientDto>(
+    `${basePath(orgId)}/${encodeURIComponent(clientId)}/legal-document`,
+    file,
+    { fieldName: "legalDocument" },
+  );
+}
+
+export function downloadClientLegalDocumentApi(
+  orgId: string,
+  clientId: string,
+): Promise<Blob> {
+  return apiDownloadBlob(
+    `${basePath(orgId)}/${encodeURIComponent(clientId)}/legal-document`,
   );
 }
 

@@ -300,7 +300,7 @@ export function ProjectsPage() {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as AgencyProjectStatus | "all")}
             >
-              <option value="all">All statuses</option>
+              <option value="all">All</option>
               <option value="active">Active</option>
               <option value="completed">Completed</option>
               <option value="on-hold">On hold</option>

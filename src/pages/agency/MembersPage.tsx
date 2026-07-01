@@ -220,7 +220,7 @@ export function MembersPage() {
                   setStatusFilter(event.target.value as typeof statusFilter)
                 }
               >
-                <option value="all">All statuses</option>
+                <option value="all">All </option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </Select>

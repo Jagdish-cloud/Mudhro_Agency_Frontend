@@ -150,7 +150,7 @@ export function VendorsPage() {
               value={status}
               onChange={(e) => setStatus(e.target.value as "all" | AgencyClientStatus)}
             >
-              <option value="all">All statuses</option>
+              <option value="all">All</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
               <option value="archived">Archived</option>

@@ -24,7 +24,7 @@ import {
   deleteClientItemApi,
   listClientItemsApi,
 } from "@/services/agency/clientItemsService";
-import { getAgencyClientApi } from "@/services/agency/clientsService";
+import { getAgencyClientApi, downloadClientLegalDocumentApi } from "@/services/agency/clientsService";
 import { listAgencyInvoicesApi } from "@/services/agency/invoicesService";
 import type {
   AgencyClientDto,
@@ -117,6 +117,9 @@ export function ClientDetailPage() {
           </Link>
         </Button>
         <h1 className="text-2xl font-semibold tracking-tight">{client.name}</h1>
+        <Badge variant={client.clientRegion === "international" ? "secondary" : "outline"}>
+          {client.clientRegion === "international" ? "International" : "Domestic"}
+        </Badge>
         <Badge variant={client.status === "active" ? "active" : "inactive"}>{client.status}</Badge>
       </div>
 
@@ -129,9 +132,55 @@ export function ClientDetailPage() {
             <div><span className="text-muted-foreground">Contact:</span> {client.contactName ?? "-"}</div>
             <div><span className="text-muted-foreground">Email:</span> {client.email ?? "-"}</div>
             <div><span className="text-muted-foreground">Phone:</span> {client.phone ?? "-"}</div>
-            <div><span className="text-muted-foreground">GST:</span> {client.gstNumber ?? "-"}</div>
-            <div><span className="text-muted-foreground">PAN:</span> {client.panNumber ?? "-"}</div>
-            <div><span className="text-muted-foreground">State code:</span> {client.stateCode ?? "-"}</div>
+            {client.clientRegion === "domestic" ? (
+              <>
+                <div><span className="text-muted-foreground">GST:</span> {client.gstNumber ?? "-"}</div>
+                <div><span className="text-muted-foreground">PAN:</span> {client.panNumber ?? "-"}</div>
+                <div><span className="text-muted-foreground">State code:</span> {client.stateCode ?? "-"}</div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <span className="text-muted-foreground">Legal ID:</span>{" "}
+                  {client.legalIdNumber
+                    ? `${client.legalIdLabel ? `${client.legalIdLabel}: ` : ""}${client.legalIdNumber}`
+                    : "-"}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Legal document:</span>
+                  {client.hasLegalDocument ? (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      onClick={() => {
+                        if (!orgId || !clientId) return;
+                        void downloadClientLegalDocumentApi(orgId, clientId)
+                          .then((blob) => {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `${client.name}-legal-document`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          })
+                          .catch((error: unknown) => {
+                            const message =
+                              error instanceof ApiError
+                                ? error.message
+                                : "Could not download document.";
+                            toast.error(message);
+                          });
+                      }}
+                    >
+                      Download
+                    </Button>
+                  ) : (
+                    "-"
+                  )}
+                </div>
+              </>
+            )}
             <div className="sm:col-span-2">
               <span className="text-muted-foreground">Billing:</span>{" "}
               {client.billingAddress ?? "-"}

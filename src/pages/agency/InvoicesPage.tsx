@@ -121,7 +121,7 @@ export function InvoicesPage() {
               value={status}
               onChange={(e) => setStatus(e.target.value as "all" | AgencyInvoiceStatus)}
             >
-              <option value="all">All statuses</option>
+              <option value="all">All</option>
               <option value="draft">Draft</option>
               <option value="sent">Sent</option>
               <option value="viewed">Viewed</option>

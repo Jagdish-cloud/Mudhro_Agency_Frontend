@@ -23,6 +23,8 @@ export type AgencyReminderStatus = "scheduled" | "sent" | "failed" | "cancelled"
 
 export type AgencyClientStatus = "active" | "inactive" | "archived";
 
+export type AgencyClientRegion = "domestic" | "international";
+
 export type AgencyClientDto = {
   id: string;
   organizationId: string;
@@ -34,6 +36,10 @@ export type AgencyClientDto = {
   gstNumber: string | null;
   panNumber: string | null;
   stateCode: string | null;
+  clientRegion: AgencyClientRegion;
+  legalIdLabel: string | null;
+  legalIdNumber: string | null;
+  hasLegalDocument: boolean;
   status: AgencyClientStatus;
   notes: string | null;
   tags: string[];
@@ -284,6 +290,7 @@ export type MonthlyReport = {
 
 export type CreateClientInput = {
   name: string;
+  clientRegion?: AgencyClientRegion;
   contactName?: string;
   email?: string;
   phone?: string;
@@ -291,6 +298,8 @@ export type CreateClientInput = {
   gstNumber?: string;
   panNumber?: string;
   stateCode?: string;
+  legalIdLabel?: string;
+  legalIdNumber?: string;
   status?: AgencyClientStatus;
   notes?: string;
   tags?: string[];

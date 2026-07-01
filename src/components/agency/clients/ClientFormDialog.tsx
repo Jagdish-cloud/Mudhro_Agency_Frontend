@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
-import { useEffect } from "react";
+import { FileText, Loader2, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -16,23 +16,29 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useMutationFeedback } from "@/context/mutation-feedback-context";
 import { ApiError } from "@/lib/apiClient";
 import {
   agencyClientSchema,
+  validateInternationalVerification,
   type AgencyClientFormValues,
 } from "@/schemas/agencyClientSchema";
 import {
   createAgencyClientApi,
+  downloadClientLegalDocumentApi,
   updateAgencyClientApi,
+  uploadClientLegalDocumentApi,
 } from "@/services/agency/clientsService";
 import type { AgencyClientDto } from "@/types/agencyInvoicing";
 
@@ -45,6 +51,7 @@ type ClientFormDialogProps = {
 };
 
 const emptyValues: AgencyClientFormValues = {
+  clientRegion: "domestic",
   name: "",
   contactName: "",
   email: "",
@@ -53,10 +60,14 @@ const emptyValues: AgencyClientFormValues = {
   gstNumber: "",
   panNumber: "",
   stateCode: "",
+  legalIdLabel: "",
+  legalIdNumber: "",
   status: "active",
   notes: "",
   tags: [],
 };
+
+const LEGAL_DOC_ACCEPT = ".pdf,.png,.jpg,.jpeg,.gif,.webp";
 
 export function ClientFormDialog({
   open,
@@ -66,15 +77,24 @@ export function ClientFormDialog({
   onSaved,
 }: ClientFormDialogProps) {
   const { run } = useMutationFeedback();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingLegalFile, setPendingLegalFile] = useState<File | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+
   const form = useForm<AgencyClientFormValues>({
     resolver: zodResolver(agencyClientSchema) as unknown as Resolver<AgencyClientFormValues>,
     defaultValues: emptyValues,
   });
 
+  const clientRegion = form.watch("clientRegion");
+
   useEffect(() => {
     if (!open) return;
+    setPendingLegalFile(null);
+    setVerificationError(null);
     if (editing) {
       form.reset({
+        clientRegion: editing.clientRegion ?? "domestic",
         name: editing.name,
         contactName: editing.contactName ?? "",
         email: editing.email ?? "",
@@ -83,6 +103,8 @@ export function ClientFormDialog({
         gstNumber: editing.gstNumber ?? "",
         panNumber: editing.panNumber ?? "",
         stateCode: editing.stateCode ?? "",
+        legalIdLabel: editing.legalIdLabel ?? "",
+        legalIdNumber: editing.legalIdNumber ?? "",
         status: editing.status,
         notes: editing.notes ?? "",
         tags: editing.tags ?? [],
@@ -92,30 +114,60 @@ export function ClientFormDialog({
     }
   }, [open, editing, form]);
 
-  async function onSubmit(values: AgencyClientFormValues) {
-    try {
-      const payload = {
-        name: values.name,
-        contactName: values.contactName || undefined,
-        email: values.email || undefined,
-        phone: values.phone || undefined,
-        billingAddress: values.billingAddress || undefined,
-        gstNumber: values.gstNumber || undefined,
-        panNumber: values.panNumber || undefined,
-        stateCode: values.stateCode || undefined,
-        status: values.status,
-        notes: values.notes || undefined,
-        tags: values.tags ?? [],
+  function buildPayload(values: AgencyClientFormValues) {
+    const base = {
+      name: values.name,
+      clientRegion: values.clientRegion,
+      contactName: values.contactName || undefined,
+      email: values.email || undefined,
+      phone: values.phone || undefined,
+      billingAddress: values.billingAddress || undefined,
+      status: values.status,
+      notes: values.notes || undefined,
+      tags: values.tags ?? [],
+    };
+
+    if (values.clientRegion === "international") {
+      return {
+        ...base,
+        legalIdLabel: values.legalIdLabel || undefined,
+        legalIdNumber: values.legalIdNumber || undefined,
       };
-      const saved = await run(
-        () =>
-          editing
-            ? updateAgencyClientApi(orgId, editing.id, payload)
-            : createAgencyClientApi(orgId, payload),
-        {
-          successMessage: editing ? "Client updated." : "Client created.",
-        },
-      );
+    }
+
+    return {
+      ...base,
+      gstNumber: values.gstNumber || undefined,
+      panNumber: values.panNumber || undefined,
+      stateCode: values.stateCode || undefined,
+    };
+  }
+
+  async function onSubmit(values: AgencyClientFormValues) {
+    const intlError = validateInternationalVerification(values, {
+      hasExistingLegalDocument: editing?.hasLegalDocument,
+      pendingLegalFile,
+    });
+    if (intlError) {
+      setVerificationError(intlError);
+      return;
+    }
+    setVerificationError(null);
+
+    try {
+      const payload = buildPayload(values);
+      const saved = await run(async () => {
+        let client = editing
+          ? await updateAgencyClientApi(orgId, editing.id, payload)
+          : await createAgencyClientApi(orgId, payload);
+        if (pendingLegalFile) {
+          client = await uploadClientLegalDocumentApi(orgId, client.id, pendingLegalFile);
+        }
+        return client;
+      }, {
+        successMessage: editing ? "Client updated." : "Client created.",
+      });
+
       onSaved(saved);
       onOpenChange(false);
     } catch (error) {
@@ -126,13 +178,31 @@ export function ClientFormDialog({
     }
   }
 
+  async function handleDownloadLegalDocument() {
+    if (!editing) return;
+    try {
+      const blob = await downloadClientLegalDocumentApi(orgId, editing.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${editing.name}-legal-document`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      const message =
+        error instanceof ApiError ? error.message : "Could not download document.";
+      toast.error(message);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editing ? "Edit client" : "New client"}</DialogTitle>
           <DialogDescription>
-            Clients are scoped to this organization. GST state code drives CGST/SGST vs IGST on invoices.
+            Choose domestic (India) or international. Domestic clients can use GST/PAN for
+            invoicing; international clients require a government ID or legal document.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -142,6 +212,43 @@ export function ClientFormDialog({
                 {form.formState.errors.root.message}
               </div>
             ) : null}
+            {verificationError ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                {verificationError}
+              </div>
+            ) : null}
+
+            <FormField
+              control={form.control}
+              name="clientRegion"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Client region</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      className="flex flex-col gap-2 sm:flex-row sm:gap-6"
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    >
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="domestic" id="client-region-domestic" />
+                        <Label htmlFor="client-region-domestic" className="font-normal">
+                          Domestic (India)
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="international" id="client-region-international" />
+                        <Label htmlFor="client-region-international" className="font-normal">
+                          International
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
@@ -189,51 +296,141 @@ export function ClientFormDialog({
                   <FormItem>
                     <FormLabel>Phone</FormLabel>
                     <FormControl>
-                      <Input placeholder="+91 ..." {...field} />
+                      <Input
+                        placeholder={clientRegion === "domestic" ? "+91 ..." : "+1 ..."}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="gstNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>GST number</FormLabel>
-                    <FormControl>
-                      <Input placeholder="22ABCDE1234F1Z5" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="panNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>PAN</FormLabel>
-                    <FormControl>
-                      <Input placeholder="ABCDE1234F" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="stateCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>State code</FormLabel>
-                    <FormControl>
-                      <Input maxLength={2} placeholder="29" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+
+              {clientRegion === "domestic" ? (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="gstNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>GST number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="22ABCDE1234F1Z5" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="panNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>PAN</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ABCDE1234F" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="stateCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State code</FormLabel>
+                        <FormControl>
+                          <Input maxLength={2} placeholder="29" {...field} />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Drives CGST/SGST vs IGST on invoices.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              ) : (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="legalIdLabel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ID type (optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="VAT, EIN, Company Reg No." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="legalIdNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Government ID number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Government-authorized ID" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="sm:col-span-2 space-y-2">
+                    <Label>Legal document</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Provide a government ID number or upload one legal document (PDF or image).
+                    </p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept={LEGAL_DOC_ACCEPT}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        setPendingLegalFile(file);
+                        setVerificationError(null);
+                        e.target.value = "";
+                      }}
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload className="mr-1 h-4 w-4" />
+                        {pendingLegalFile ? "Replace file" : "Upload document"}
+                      </Button>
+                      {pendingLegalFile ? (
+                        <span className="text-sm text-muted-foreground">
+                          {pendingLegalFile.name}
+                        </span>
+                      ) : editing?.hasLegalDocument ? (
+                        <>
+                          <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <FileText className="h-4 w-4" />
+                            Document on file
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void handleDownloadLegalDocument()}
+                          >
+                            Download
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                </>
+              )}
+
               <FormField
                 control={form.control}
                 name="status"

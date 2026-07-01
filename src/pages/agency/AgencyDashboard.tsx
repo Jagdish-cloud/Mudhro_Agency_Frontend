@@ -46,8 +46,8 @@ export function AgencyDashboard() {
     () => [
       { label: "Total Receivables", value: metrics?.totalReceivables ?? 0 },
       { label: "Pending Invoices", value: metrics?.pendingInvoicesCount ?? 0 },
-      { label: "This Month Revenue", value: metrics?.monthRevenue ?? 0 },
-      { label: "This Month Expenses", value: metrics?.monthExpenses ?? 0 },
+      { label: "Current Month Revenue", value: metrics?.monthRevenue ?? 0 },
+      { label: "Current Month Expenses", value: metrics?.monthExpenses ?? 0 },
     ],
     [metrics],
   );

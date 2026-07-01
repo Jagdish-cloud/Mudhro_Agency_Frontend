@@ -14,12 +14,12 @@ export function HeroSection() {
             Built for agencies, studios, and distributed teams
           </p>
           <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-5xl">
-            The financial operating system for organizations that bill, spend, and grow together
+            The Financial Operating System for agencies, studios, and distributed teams that bill, spend, and grow together
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-pretty text-base text-muted-foreground sm:text-lg">
-            Unify invoicing, expenses, payments, tax workflows, and monthly reporting in one admin-grade
-            workspace—with role-ready collaboration for admins and future team members.
-          </p>
+            Simplify invoicing, Expense Management, Projects, Taxes and Reports, and monthly reporting in one admin-grade
+            in one automated platform with role ready collaboration for admins and team members.
+                      </p>
           <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
             <Button size="lg" className="w-full sm:w-auto" asChild>
               <Link to="/contact">
